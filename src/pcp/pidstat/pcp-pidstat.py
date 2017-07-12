@@ -344,7 +344,7 @@ class ProcessFilter:
         return True
 
 class ProcessState:
-    def __init__(self, instance, metric_repository):
+    def __init__(self, instance,  metric_repository):
         self.instance = instance
         self.__metric_repository = metric_repository
 
@@ -520,7 +520,7 @@ class PidstatOptions(pmapi.pmOptions):
     #After reading in the provided command line options
     #initalize them by passing them in
     def __init__(self):
-        pmapi.pmOptions.__init__(self,"a:s:t:G:IU::p:RrkV?:f:B:")
+        pmapi.pmOptions.__init__(self,"a:s:t:G:IU::p:RrkVB?:f:")
         self.pmSetOptionCallback(self.extraOptions)
         self.pmSetOverrideCallback(self.override)
         self.pmSetLongOptionHeader("General options")
