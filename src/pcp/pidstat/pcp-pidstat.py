@@ -344,13 +344,36 @@ class ProcessFilter:
         return True
 
 class ProcessState:
-    def __init__(self, instance,  metric_repository):
+    def __init__(self, metric_repository,instance=None):
         self.instance = instance
         self.__metric_repository = metric_repository
 
+    def pid(self):
+        return self.__metric_repository.current_value('proc.psinfo.pid', self.instance)
+
+    def user_id(self):
+        return self.__metric_repository.current_value('proc.id.uid', self.instance)
+
     def process_state(self):
         return self__metric_repository,current_value('proc.psinfo.sname', self.instance)
+
+    def process_name(self):
+        return self.__metric_repository.current_value('proc.psinfo.cmd', self.instance)
+
+    def user_name(self):
+        return self.__metric_repository.current_value('proc.id.uid_nm', self.instance)
+
     #To do: fetch wchan_s to determine the amount of time the process spent in the current state
+class CpuProcessStates:
+    def __init__(self, metric_repository):
+        self.__metric_repository = metric_repository
+
+    def get_processes(self):
+        return map((lambda pid: (ProcessState(pid, self.__metric_repository))), self.__pids())
+
+    def __pids(self):
+        pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
+        return sorted(pid_dict.values())
 
 class CpuUsageReporter:
     def __init__(self, cpu_usage, process_filter, delta_time, printer, pidstat_options):
@@ -431,7 +454,7 @@ class CpuProcessStackUtilReporter:
             else:
                 self.printer("%s%s%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.stack_size(),process.process_name()))
 
-class ProcessStateReporter:
+class CpuProcessStatesReporter:
     def __init__(self, process_state, process_filter, printer, pidstat_options):
         self.process_state = process_state
         self.process_filter = process_filter
@@ -612,11 +635,11 @@ class PidstatReport(pmcc.MetricGroupPrinter):
 
             report.print_report(timestamp, header_indentation, value_indentation)
         elif(PidstatOptions.show_process_states):
-            process_state = ProcessState(metric_repository)
+            process_state = CpuProcessStates(metric_repository)
             process_filter = ProcessFilter(PidstatOptions)
             stdout = StdoutPrinter()
             printdecorator = NoneHandlingPrinterDecorator(stdout)
-            report = ProcessStateReporter(process_state, process_filter, printdecorator.Print, PidstatOptions)
+            report = CpuProcessStatesReporter(process_state, process_filter, printdecorator.Print, PidstatOptions)
 
             report.print_report(timestamp, header_indentation, value_indentation)
         else:
