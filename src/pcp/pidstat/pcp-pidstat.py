@@ -369,7 +369,7 @@ class CpuProcessStates:
         self.__metric_repository = metric_repository
 
     def get_processes(self):
-        return map((lambda pid: (ProcessState(pid, self.__metric_repository))), self.__pids())
+        return map((lambda pid: (ProcessState(self.__metric_repository,pid))), self.__pids())
 
     def __pids(self):
         pid_dict = self.__metric_repository.current_values('proc.psinfo.pid')
