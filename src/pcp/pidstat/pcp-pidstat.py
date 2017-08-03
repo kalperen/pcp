@@ -355,7 +355,7 @@ class ProcessState:
         return self.__metric_repository.current_value('proc.id.uid', self.instance)
 
     def process_state(self):
-        return self__metric_repository,current_value('proc.psinfo.sname', self.instance)
+        return self.__metric_repository.current_value('proc.psinfo.sname', self.instance)
 
     def process_name(self):
         return self.__metric_repository.current_value('proc.psinfo.cmd', self.instance)
