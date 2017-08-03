@@ -466,9 +466,9 @@ class CpuProcessStatesReporter:
         processes = self.process_filter.filter_processes(self.process_state.get_processes())
         for process in processes:
             if self.pidstat_options.show_process_user:
-                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_name(),process.pid(),process.process_state,"0","0","0"))
+                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_name(),process.pid(),process.process_state(),"0","0","0"))
             else:
-                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.process_state,"0","0","0"))
+                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.process_state(),"0","0","0"))
 class NoneHandlingPrinterDecorator:
     def __init__(self, printer):
         self.printer = printer
