@@ -347,6 +347,8 @@ class ProcessState:
     def __init__(self, metric_repository,instance=None):
         self.instance = instance
         self.__metric_repository = metric_repository
+        self.creation_time = time.time()
+        self.originstate = self.__metric_repository.current_value('proc.psinfo.sname', self.instance)
 
     def pid(self):
         return self.__metric_repository.current_value('proc.psinfo.pid', self.instance)
@@ -363,7 +365,14 @@ class ProcessState:
     def user_name(self):
         return self.__metric_repository.current_value('proc.id.uid_nm', self.instance)
 
-    #To do: fetch wchan_s to determine the amount of time the process spent in the current state
+    def time_spent_cur_state(self):
+        if self.originstate != self.__metric_repository.current_value('proc.psinfo.sname', self.instance):
+            self.originstate = self.__metric_repository.current_value('proc.psinfo.sname', self.instance)
+            self.creation_time = time.time()
+            return time.time() - self.creation_time
+        else:
+            return time.time() - self.creation_time
+
 class CpuProcessStates:
     def __init__(self, metric_repository):
         self.__metric_repository = metric_repository
@@ -462,13 +471,13 @@ class CpuProcessStatesReporter:
         self.pidstat_options = pidstat_options
 
     def print_report(self, timestamp, header_indentation, value_indentation):
-        self.printer ("Timestamp" + header_indentation + "UID\tPID\tPState\tTimeSpentCurState\tAvgTimeSpentCurState\tBlockCount")
+        self.printer ("Timestamp" + header_indentation + "UID\tPID\tPState\tTimeSpentCurState\tAvgTimeSpentCurState\tBlockCount\tCommand")
         processes = self.process_filter.filter_processes(self.process_state.get_processes())
         for process in processes:
             if self.pidstat_options.show_process_user:
-                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_name(),process.pid(),process.process_state(),"0","0","0"))
+                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_name(),process.pid(),process.process_state(),process.time_spent_cur_state(),"9","0", process.process_name()))
             else:
-                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.process_state(),"0","0","0"))
+                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.process_state(),process.time_spent_cur_state(),"9","0", process.process_name()))
 class NoneHandlingPrinterDecorator:
     def __init__(self, printer):
         self.printer = printer
