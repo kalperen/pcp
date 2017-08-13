@@ -344,10 +344,12 @@ class ProcessFilter:
         return True
 
 class ProcessState:
+    global cur_state
+    cur_state = 0
+
     def __init__(self, metric_repository,instance=None):
         self.instance = instance
         self.__metric_repository = metric_repository
-        self.creation_time = time.time()
         self.originstate = self.__metric_repository.current_value('proc.psinfo.sname', self.instance)
 
     def pid(self):
@@ -364,14 +366,6 @@ class ProcessState:
 
     def user_name(self):
         return self.__metric_repository.current_value('proc.id.uid_nm', self.instance)
-
-    def time_spent_cur_state(self):
-        if self.originstate != self.__metric_repository.current_value('proc.psinfo.sname', self.instance):
-            self.originstate = self.__metric_repository.current_value('proc.psinfo.sname', self.instance)
-            self.creation_time = time.time()
-            return time.time() - self.creation_time
-        else:
-            return time.time() - self.creation_time
 
 class CpuProcessStates:
     def __init__(self, metric_repository):
@@ -469,15 +463,28 @@ class CpuProcessStatesReporter:
         self.process_filter = process_filter
         self.printer = printer
         self.pidstat_options = pidstat_options
+        self.d = {}
 
-    def print_report(self, timestamp, header_indentation, value_indentation):
+    def process_states_mapper(self, process, delta_time):
+        #processes = self.process_filter.filter_processes(self.process_state.get_processes())
+        #for process in processes:
+        self.d[process.pid()] = [process.process_state(), delta_time]
+
+    def time_spent_cur_state_tracker(self, process, delta_time):
+        self.d[process.pid()][1] += delta_time
+
+    def print_report(self, timestamp, header_indentation, value_indentation, delta_time):
         self.printer ("Timestamp" + header_indentation + "UID\tPID\tPState\tTimeSpentCurState\tAvgTimeSpentCurState\tBlockCount\tCommand")
         processes = self.process_filter.filter_processes(self.process_state.get_processes())
         for process in processes:
+            self.process_states_mapper(process, delta_time)
             if self.pidstat_options.show_process_user:
-                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_name(),process.pid(),process.process_state(),process.time_spent_cur_state(),"9","0", process.process_name()))
+                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_name(),process.pid(),process.process_state(),self.d[process.pid()][1],"9","0", process.process_name()))
             else:
-                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.process_state(),process.time_spent_cur_state(),"9","0", process.process_name()))
+                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.process_state(),self.d[process.pid()][1],"9","0", process.process_name()))
+            self.time_spent_cur_state_tracker(process, delta_time)
+            #print(process.pid()," ",self.d[process.pid()])
+
 class NoneHandlingPrinterDecorator:
     def __init__(self, printer):
         self.printer = printer
@@ -650,7 +657,7 @@ class PidstatReport(pmcc.MetricGroupPrinter):
             printdecorator = NoneHandlingPrinterDecorator(stdout)
             report = CpuProcessStatesReporter(process_state, process_filter, printdecorator.Print, PidstatOptions)
 
-            report.print_report(timestamp, header_indentation, value_indentation)
+            report.print_report(timestamp, header_indentation, value_indentation, interval_in_seconds)
         else:
             cpu_usage = CpuUsage(metric_repository)
             process_filter = ProcessFilter(PidstatOptions)
