@@ -466,12 +466,19 @@ class CpuProcessStatesReporter:
         self.d = {}
 
     def process_states_mapper(self, process, delta_time):
-        #processes = self.process_filter.filter_processes(self.process_state.get_processes())
-        #for process in processes:
-        self.d[process.pid()] = [process.process_state(), delta_time]
+        if(self.d.get(process.pid()) == None):
+            self.d[process.pid()] = [process.process_state(), delta_time]
+        else:
+            if process.process_state() == self.d[process.pid()][0]:
+                self.d[process.pid()][1] += delta_time
+            else:
+                self.d[process.pid()][1] = 0
 
-    def time_spent_cur_state_tracker(self, process, delta_time):
-        self.d[process.pid()][1] += delta_time
+    #def time_spent_cur_state_tracker(self, process, delta_time):
+    #    if process.process_state() == self.d[process.pid()][1]:
+    #         self.d[process.pid()][1] += delta_time
+    #    else:
+    #        self.d[process.pid()][1] = 0
 
     def print_report(self, timestamp, header_indentation, value_indentation, delta_time):
         self.printer ("Timestamp" + header_indentation + "UID\tPID\tPState\tTimeSpentCurState\tAvgTimeSpentCurState\tBlockCount\tCommand")
@@ -482,8 +489,7 @@ class CpuProcessStatesReporter:
                 self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_name(),process.pid(),process.process_state(),self.d[process.pid()][1],"9","0", process.process_name()))
             else:
                 self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.process_state(),self.d[process.pid()][1],"9","0", process.process_name()))
-            self.time_spent_cur_state_tracker(process, delta_time)
-            #print(process.pid()," ",self.d[process.pid()])
+            print(process.pid()," ",self.d[process.pid()])
 
 class NoneHandlingPrinterDecorator:
     def __init__(self, printer):
