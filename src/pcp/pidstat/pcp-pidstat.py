@@ -457,39 +457,103 @@ class CpuProcessStackUtilReporter:
             else:
                 self.printer("%s%s%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.stack_size(),process.process_name()))
 
+class processStateTracker:
+    def __init__(self):
+        self.stateDict = dict()
+
+
+    def time_update(self, process, time_delta):
+        state = self.stateDict[process.pid()]
+        if(state['sname'] == 'R'):
+            state['R_time'] += time_delta
+        elif(state['sname'] == 'S'):
+            state['S_time'] += time_delta
+        elif(state['sname'] == 'D'):
+            state['D_time'] += time_delta
+        elif(state['sname'] == 'T'):
+            state['T_time'] += time_delta
+        elif(state['sname'] == 't'):
+            state['t_time'] += time_delta
+        elif(state['sname'] == 'X'):
+            state['X_time'] += time_delta
+        else:
+            state['Z_time'] += time_delta
+
+    def count_update(self, process):
+        state = self.stateDict[process.pid()]
+        if(state['sname'] == 'R'):
+            state['R_count'] += 1
+        elif(state['sname'] == 'S'):
+            state['S_count'] += 1
+        elif(state['sname'] == 'D'):
+            state['D_count'] += 1
+        elif(state['sname'] == 'T'):
+            state['T_count'] += 1
+        elif(state['sname'] == 't'):
+            state['t_count'] += 1
+        elif(state['sname'] == 'X'):
+            state['X_count'] += 1
+        else:
+            state['Z_count'] += 1
+
+    def update(self, process, time_delta):
+        #
+        #update (or create) a state entry for a pid
+        #
+        pid = process.pid()
+        sname = process.process_state()
+        try:
+            state = self.stateDict[pid]
+            # Process is already being tracked - update it's state time_delta
+            if state['sname'] == sname:
+                # same state, so increase state_time by the time delta
+                state['state_time'] += time_delta
+                self.time_update(process, time_delta)
+            else:
+                # different state, so set state_time back to zero
+                state['state_time'] = 0.0
+                self.count_update(process)
+        except KeyError:
+                # New process, initialize its state
+                state = { 'pid':pid, 'sname':sname, 'state_time':0.0, 'R_count':0, 'R_time':0.0, 'S_count':0, 'S_time':0.0, 'D_count':0, 'D_time':0.0, 'T_count':0, 't_time':0.0, 'X_count':0, 'X_time':0.0, 'Z_count':0, 'Z_time':0.0 }
+                self.stateDict[pid] = state
+                self.count_update(process)
+
+        return state
+
+    def get_average_time(self, process):
+        state = self.stateDict[process.pid()]
+        if(state['sname'] == 'R'):
+            return state['R_time']/state['R_count']
+        elif(state['sname'] == 'S'):
+            return state['S_time']/state['S_count']
+        elif(state['sname'] == 'D'):
+            return state['D_time']/state['D_count']
+        elif(state['sname'] == 'T'):
+            return state['T_time']/state['T_count']
+        elif(state['sname'] == 't'):
+            return state['T_time']/state['T_count']
+        elif(state['sname'] == 'X'):
+            return state['X_time']/state['X_count']
+        else:
+            return state['Z_time']/state['Z_count']
+
 class CpuProcessStatesReporter:
     def __init__(self, process_state, process_filter, printer, pidstat_options):
         self.process_state = process_state
         self.process_filter = process_filter
         self.printer = printer
         self.pidstat_options = pidstat_options
-        self.d = {}
-
-    def process_states_mapper(self, process, delta_time):
-        if(self.d.get(process.pid()) == None):
-            self.d[process.pid()] = [process.process_state(), delta_time]
-        else:
-            if process.process_state() == self.d[process.pid()][0]:
-                self.d[process.pid()][1] += delta_time
-            else:
-                self.d[process.pid()][1] = 0
-
-    #def time_spent_cur_state_tracker(self, process, delta_time):
-    #    if process.process_state() == self.d[process.pid()][1]:
-    #         self.d[process.pid()][1] += delta_time
-    #    else:
-    #        self.d[process.pid()][1] = 0
 
     def print_report(self, timestamp, header_indentation, value_indentation, delta_time):
         self.printer ("Timestamp" + header_indentation + "UID\tPID\tPState\tTimeSpentCurState\tAvgTimeSpentCurState\tBlockCount\tCommand")
         processes = self.process_filter.filter_processes(self.process_state.get_processes())
         for process in processes:
-            self.process_states_mapper(process, delta_time)
+            state = stateTracker.update(process, delta_time);
             if self.pidstat_options.show_process_user:
-                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_name(),process.pid(),process.process_state(),self.d[process.pid()][1],"9","0", process.process_name()))
+                self.printer("%s%s%s\t%s\t%s\t%s\t \t%s\t   \t%s\t  \t%s" % (timestamp,value_indentation,process.user_name(), state['pid'], state['sname'], process.process_name()))
             else:
-                self.printer("%s%s%s\t%s\t%s\t%s\t%s\t%s\t%s" % (timestamp,value_indentation,process.user_id(),process.pid(),process.process_state(),self.d[process.pid()][1],"9","0", process.process_name()))
-            print(process.pid()," ",self.d[process.pid()])
+                self.printer("%s%s%s\t%s\t%s\t%s\t \t%s\t   \t%s\t  \t%s" % (timestamp,value_indentation,process.user_id(), state['pid'], state['sname'], state['state_time'], stateTracker.get_average_time(process),state['D_count'], process.process_name()))
 
 class NoneHandlingPrinterDecorator:
     def __init__(self, printer):
@@ -682,6 +746,7 @@ if __name__ == "__main__":
             raise pmapi.pmUsageErr
         manager['pidstat'] = PIDSTAT_METRICS
         manager.printer = PidstatReport()
+        stateTracker = processStateTracker()
         sts = manager.run()
         sys.exit(sts)
     except pmapi.pmErr as pmerror:
