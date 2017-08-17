@@ -478,6 +478,7 @@ class processStateTracker:
             state['X_time'] += time_delta
         else:
             state['Z_time'] += time_delta
+        self.stateDict[process.pid()] = state
 
     def count_update(self, process):
         state = self.stateDict[process.pid()]
@@ -495,6 +496,7 @@ class processStateTracker:
             state['X_count'] += 1
         else:
             state['Z_count'] += 1
+        self.stateDict[process.pid()] = state
 
     def update(self, process, time_delta):
         #
