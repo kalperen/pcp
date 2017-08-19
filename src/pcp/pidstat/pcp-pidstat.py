@@ -464,38 +464,12 @@ class processStateTracker:
 
     def time_update(self, process, time_delta):
         state = self.stateDict[process.pid()]
-        if(state['sname'] == 'R'):
-            state['R_time'] += time_delta
-        elif(state['sname'] == 'S'):
-            state['S_time'] += time_delta
-        elif(state['sname'] == 'D'):
-            state['D_time'] += time_delta
-        elif(state['sname'] == 'T'):
-            state['T_time'] += time_delta
-        elif(state['sname'] == 't'):
-            state['t_time'] += time_delta
-        elif(state['sname'] == 'X'):
-            state['X_time'] += time_delta
-        else:
-            state['Z_time'] += time_delta
+        state[state['sname'] + '_time'] += time_delta
         self.stateDict[process.pid()] = state
 
     def count_update(self, process):
         state = self.stateDict[process.pid()]
-        if(state['sname'] == 'R'):
-            state['R_count'] += 1
-        elif(state['sname'] == 'S'):
-            state['S_count'] += 1
-        elif(state['sname'] == 'D'):
-            state['D_count'] += 1
-        elif(state['sname'] == 'T'):
-            state['T_count'] += 1
-        elif(state['sname'] == 't'):
-            state['t_count'] += 1
-        elif(state['sname'] == 'X'):
-            state['X_count'] += 1
-        else:
-            state['Z_count'] += 1
+        state[state['sname'] + '_count'] += 1
         self.stateDict[process.pid()] = state
 
     def update(self, process, time_delta):
@@ -514,10 +488,14 @@ class processStateTracker:
             else:
                 # different state, so set state_time back to zero
                 state['state_time'] = 0.0
+                # initialize the timer and count for the new state unless it's disk sleep which is always initialized
+                if sname != 'D':
+                    state[sname+'_time'] = 0.0
+                    state[sname+'_count'] = 0.0
                 self.count_update(process)
         except KeyError:
                 # New process, initialize its state
-                state = { 'pid':pid, 'sname':sname, 'state_time':0.0, 'R_count':0, 'R_time':0.0, 'S_count':0, 'S_time':0.0, 'D_count':0, 'D_time':0.0, 'T_count':0, 't_time':0.0, 'X_count':0, 'X_time':0.0, 'Z_count':0, 'Z_time':0.0 }
+                state = { 'pid':pid, 'sname':sname, 'state_time':0.0, (sname +'_time'):0.0, (sname +'_count'):0, 'D_count':0, 'D_time':0.0}
                 self.stateDict[pid] = state
                 self.count_update(process)
 
@@ -525,20 +503,12 @@ class processStateTracker:
 
     def get_average_time(self, process):
         state = self.stateDict[process.pid()]
-        if(state['sname'] == 'R'):
-            return state['R_time']/state['R_count']
-        elif(state['sname'] == 'S'):
-            return state['S_time']/state['S_count']
-        elif(state['sname'] == 'D'):
-            return state['D_time']/state['D_count']
-        elif(state['sname'] == 'T'):
-            return state['T_time']/state['T_count']
-        elif(state['sname'] == 't'):
-            return state['T_time']/state['T_count']
-        elif(state['sname'] == 'X'):
-            return state['X_time']/state['X_count']
+        current_state_time = state[state['sname'] + '_time']
+        current_state_count = state[state['sname'] + '_count']
+        if current_state_count == 0:
+            return 0
         else:
-            return state['Z_time']/state['Z_count']
+            return current_state_time/current_state_count
 
 class CpuProcessStatesReporter:
     def __init__(self, process_state, process_filter, printer, pidstat_options):
@@ -646,7 +616,7 @@ class PidstatOptions(pmapi.pmOptions):
         self.pmSetLongOption("",0,"r","","Report page faults and memory utilization.")
         self.pmSetLongOption("",0,"k","","Report stack utilization.")
         self.pmSetLongOption("",0,"f","","Format the timestamp output")
-        self.pmSetLongOption("",0,"B","","Show process State Fields")
+        self.pmSetLongOption("",0,"B","","Report sampled process state fields")
         self.pmSetLongOptionVersion()
         self.pmSetLongOptionHelp()
 
